@@ -2,6 +2,7 @@ This is Iperf v2.0.0, a tool for measuring Internet bandwidth performance.
 See the doc directory for more documentation.
 Briefly:
 
+  ./autogen.sh
   ./configure      -- configure for your machine
   make             -- compile Iperf
   make install     -- install Iperf, if desired

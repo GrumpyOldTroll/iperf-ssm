@@ -1,0 +1,12 @@
+*.o
+.*.sw?
+*~
+Makefile
+Makefile.in
+config.h.in
+config.log
+config.status
+iperf-int.h
+.deps/
+*.a
+stamp-h1
