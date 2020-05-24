@@ -399,71 +399,82 @@ void Listener::McastJoin( ) {
 
 void Listener::McastSource( ) {
 #ifdef HAVE_MULTICAST
-	struct group_source_req group_source_req;
-	char temp[100];
-	int iface;
+        struct group_source_req group_source_req;
+        char temp[100];
+        int iface;
 
-//	iface_str could be eth0, wlan0...
-	char *iface_str=mSettings->mInterface;
+//        iface_str could be eth0, wlan0...
+        char *iface_str=mSettings->mInterface;
 
-	FAIL( iface_str == NULL, "source multicast join: interface setting", mSettings );
+        FAIL( iface_str == NULL, "source multicast join: interface setting", mSettings );
 
-	iface = if_nametoindex(iface_str);
+        iface = if_nametoindex(iface_str);
 
-	group_source_req.gsr_interface = iface;
+        group_source_req.gsr_interface = iface;
 
-//	fprintf(stderr, "setting multicast interface to %s , idx %d\n", iface_str, iface);
+//        fprintf(stderr, "setting multicast interface to %s , idx %d\n", iface_str, iface);
 
     if ( !SockAddr_isIPv6( &mSettings->local ) ) {
-	struct sockaddr_in *group;
-	struct sockaddr_in *source;
-	group=(struct sockaddr_in*)&group_source_req.gsr_group;
-	source=(struct sockaddr_in*)&group_source_req.gsr_source;
+        struct sockaddr_in *group;
+        struct sockaddr_in *source;
+        group=(struct sockaddr_in*)&group_source_req.gsr_group;
+        source=(struct sockaddr_in*)&group_source_req.gsr_source;
 
-	SockAddr_getHostAddress(&mSettings->local, temp, 100);
-//	fprintf(stderr, "setting multicast group to %s\n", temp);
+        SockAddr_getHostAddress(&mSettings->local, temp, 100);
+//        fprintf(stderr, "setting multicast group to %s\n", temp);
 
-	group->sin_family = AF_INET;
-	inet_pton(AF_INET, temp, &group->sin_addr);
-	group->sin_port = 0;
+        group->sin_family = AF_INET;
+        inet_pton(AF_INET, temp, &group->sin_addr);
+        group->sin_port = 0;
 
-	SockAddr_getHostAddress(&mSettings->source, temp, 100);
-//	fprintf(stderr, "setting multicast source to %s\n", temp);
+        SockAddr_getHostAddress(&mSettings->source, temp, 100);
+//        fprintf(stderr, "setting multicast source to %s\n", temp);
 
-	source->sin_family = AF_INET;
-	inet_pton(AF_INET, temp, &source->sin_addr);
-	source->sin_port = 0;
+        source->sin_family = AF_INET;
+        inet_pton(AF_INET, temp, &source->sin_addr);
+        source->sin_port = 0;
 
-	int rc= setsockopt(mSettings->mSock, IPPROTO_IP, MCAST_JOIN_SOURCE_GROUP, &group_source_req,
-			   sizeof(group_source_req));
+        int rc= setsockopt(mSettings->mSock, IPPROTO_IP, MCAST_JOIN_SOURCE_GROUP, &group_source_req,
+                           sizeof(group_source_req));
 
-	FAIL_errno( rc == SOCKET_ERROR, "source multicast join", mSettings );
+        WARN_errno( rc == SOCKET_ERROR, "warning: trying IP_ADD_SOURCE_MEMBERSHIP (failed MCAST_JOIN_SOURCE_GROUP)" );
+        if (rc) {
+            // try the IP_ADD_SOURCE_MEMBERSHIP path, OSX still doesn't
+            // support MCAST_JOIN_SOURCE_GROUP apparently.
+            struct ip_mreq_source mreq;
+            memset(&mreq, 0, sizeof(mreq));
+            mreq.imr_multiaddr = group->sin_addr;
+            mreq.imr_sourceaddr = source->sin_addr;
+            rc = setsockopt(mSettings->mSock, IPPROTO_IP, IP_ADD_SOURCE_MEMBERSHIP,
+                    &mreq, sizeof(mreq));
+            FAIL_errno (rc == SOCKET_ERROR, "source-group join 2nd try with IP_ADD_SOURCE_MEMBERSHIP", mSettings);
+        }
     }
 #ifdef HAVE_IPV6_MULTICAST
       else {
-	struct sockaddr_in6 *group;
-	struct sockaddr_in6 *source;
-	group=(struct sockaddr_in6*)&group_source_req.gsr_group;
-	source=(struct sockaddr_in6*)&group_source_req.gsr_source;
+        struct sockaddr_in6 *group;
+        struct sockaddr_in6 *source;
+        group=(struct sockaddr_in6*)&group_source_req.gsr_group;
+        source=(struct sockaddr_in6*)&group_source_req.gsr_source;
 
-	SockAddr_getHostAddress(&mSettings->local, temp, 100);
-//	fprintf(stderr, "setting multicast group to %s\n", temp);
+        SockAddr_getHostAddress(&mSettings->local, temp, 100);
+//        fprintf(stderr, "setting multicast group to %s\n", temp);
 
-	group->sin6_family = AF_INET6;
-	inet_pton(AF_INET6, temp, &group->sin6_addr);
-	group->sin6_port = 0;
+        group->sin6_family = AF_INET6;
+        inet_pton(AF_INET6, temp, &group->sin6_addr);
+        group->sin6_port = 0;
 
-	SockAddr_getHostAddress(&mSettings->source, temp, 100);
-//	fprintf(stderr, "setting multicast source to %s\n", temp);
+        SockAddr_getHostAddress(&mSettings->source, temp, 100);
+//        fprintf(stderr, "setting multicast source to %s\n", temp);
 
-	source->sin6_family = AF_INET6;
-	inet_pton(AF_INET6, temp, &source->sin6_addr);
-	source->sin6_port = 0;
+        source->sin6_family = AF_INET6;
+        inet_pton(AF_INET6, temp, &source->sin6_addr);
+        source->sin6_port = 0;
 
-	int rc= setsockopt(mSettings->mSock, IPPROTO_IPV6, MCAST_JOIN_SOURCE_GROUP, &group_source_req,
-			   sizeof(group_source_req));
-	
-	FAIL_errno( rc == SOCKET_ERROR, "IPv6 source multicast join", mSettings );
+        int rc= setsockopt(mSettings->mSock, IPPROTO_IPV6, MCAST_JOIN_SOURCE_GROUP, &group_source_req,
+                           sizeof(group_source_req));
+        
+        FAIL_errno( rc == SOCKET_ERROR, "IPv6 source multicast join", mSettings );
     }
 #endif
 #endif
